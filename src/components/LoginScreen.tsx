@@ -37,7 +37,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         body: JSON.stringify({ email, phone })
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Server returned status ${response.status}. Please make sure you configured FIREBASE_SERVICE_ACCOUNT on Vercel as explained in the guide.`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed');
@@ -79,7 +85,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         body: JSON.stringify({ email, phone, pin })
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Server returned status ${response.status}. Please make sure you configured FIREBASE_SERVICE_ACCOUNT on Vercel as explained in the guide.`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Incorrect PIN');
@@ -111,7 +123,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         body: JSON.stringify({ email, phone, newPin: pin })
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Server returned status ${response.status}. Please make sure you configured FIREBASE_SERVICE_ACCOUNT on Vercel as explained in the guide.`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Reset failed');

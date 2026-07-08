@@ -165,94 +165,104 @@ app.use(express.json());
 
 // API: Auth Login
 app.post('/api/auth/login', async (req, res) => {
-  const { email, phone, pin } = req.body;
-  if (!email || !phone) {
-    return res.status(400).json({ error: 'Email and Phone number are required' });
-  }
+  try {
+    const { email, phone, pin } = req.body;
+    if (!email || !phone) {
+      return res.status(400).json({ error: 'Email and Phone number are required' });
+    }
 
-  // Find member (case insensitive email, normalized numbers)
-  const normalizedEmail = email.trim().toLowerCase();
-  const normalizedPhone = phone.trim().replace(/\s+/g, '');
+    // Find member (case insensitive email, normalized numbers)
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.trim().replace(/\s+/g, '');
 
-  const member = TEAM.find(m => {
-    return m.email.toLowerCase() === normalizedEmail && m.phone.replace(/\s+/g, '') === normalizedPhone;
-  });
+    const member = TEAM.find(m => {
+      return m.email.toLowerCase() === normalizedEmail && m.phone.replace(/\s+/g, '') === normalizedPhone;
+    });
 
-  if (!member) {
-    return res.status(401).json({ error: 'Access denied: You are not registered as a PrintStop team member.' });
-  }
+    if (!member) {
+      return res.status(401).json({ error: 'Access denied: You are not registered as a PrintStop team member.' });
+    }
 
-  // Check PIN setup
-  const existingPin = await getUserPin(member.id);
+    // Check PIN setup
+    const existingPin = await getUserPin(member.id);
 
-  if (!existingPin) {
-    // PIN not set up yet! Require them to set it up
+    if (!existingPin) {
+      // PIN not set up yet! Require them to set it up
+      if (!pin) {
+        return res.status(200).json({
+          setupRequired: true,
+          member: { id: member.id, name: member.name, email: member.email, phone: member.phone }
+        });
+      } else {
+        // Set the PIN
+        const cleanPin = pin.trim();
+        if (cleanPin.length < 4) {
+          return res.status(400).json({ error: 'PIN must be at least 4 digits' });
+        }
+        await setUserPin(member.id, cleanPin);
+        return res.status(200).json({
+          success: true,
+          member: { id: member.id, name: member.name, email: member.email, phone: member.phone }
+        });
+      }
+    }
+
+    // PIN already setup, verify it
     if (!pin) {
       return res.status(200).json({
-        setupRequired: true,
-        member: { id: member.id, name: member.name, email: member.email, phone: member.phone }
-      });
-    } else {
-      // Set the PIN
-      const cleanPin = pin.trim();
-      if (cleanPin.length < 4) {
-        return res.status(400).json({ error: 'PIN must be at least 4 digits' });
-      }
-      await setUserPin(member.id, cleanPin);
-      return res.status(200).json({
-        success: true,
-        member: { id: member.id, name: member.name, email: member.email, phone: member.phone }
+        pinRequired: true,
+        member: { id: member.id, name: member.name, email: member.email }
       });
     }
-  }
 
-  // PIN already setup, verify it
-  if (!pin) {
+    if (existingPin !== pin.trim()) {
+      return res.status(401).json({ error: 'Incorrect PIN. Please try again.' });
+    }
+
     return res.status(200).json({
-      pinRequired: true,
-      member: { id: member.id, name: member.name, email: member.email }
+      success: true,
+      member: { id: member.id, name: member.name, email: member.email, phone: member.phone }
     });
+  } catch (error: any) {
+    console.error('Error in /api/auth/login:', error);
+    return res.status(500).json({ error: `Server error during login: ${error.message || error}` });
   }
-
-  if (existingPin !== pin.trim()) {
-    return res.status(401).json({ error: 'Incorrect PIN. Please try again.' });
-  }
-
-  return res.status(200).json({
-    success: true,
-    member: { id: member.id, name: member.name, email: member.email, phone: member.phone }
-  });
 });
 
 // API: Auth Reset PIN
 app.post('/api/auth/reset-pin', async (req, res) => {
-  const { email, phone, newPin } = req.body;
-  if (!email || !phone || !newPin) {
-    return res.status(400).json({ error: 'Email, phone, and new PIN are required' });
+  try {
+    const { email, phone, newPin } = req.body;
+    if (!email || !phone || !newPin) {
+      return res.status(400).json({ error: 'Email, phone, and new PIN are required' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.trim().replace(/\s+/g, '');
+
+    const member = TEAM.find(m => {
+      return m.email.toLowerCase() === normalizedEmail && m.phone.replace(/\s+/g, '') === normalizedPhone;
+    });
+
+    if (!member) {
+      return res.status(401).json({ error: 'Verification failed. Incorrect email or phone number.' });
+    }
+
+    const cleanPin = newPin.trim();
+    if (cleanPin.length < 4) {
+      return res.status(400).json({ error: 'PIN must be at least 4 digits' });
+    }
+
+    await setUserPin(member.id, cleanPin);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your PIN has been successfully reset. You can now log in.'
+    });
+  } catch (error: any) {
+    console.error('Error in /api/auth/reset-pin:', error);
+    return res.status(500).json({ error: `Server error during PIN reset: ${error.message || error}` });
   }
-
-  const normalizedEmail = email.trim().toLowerCase();
-  const normalizedPhone = phone.trim().replace(/\s+/g, '');
-
-  const member = TEAM.find(m => {
-    return m.email.toLowerCase() === normalizedEmail && m.phone.replace(/\s+/g, '') === normalizedPhone;
-  });
-
-  if (!member) {
-    return res.status(401).json({ error: 'Verification failed. Incorrect email or phone number.' });
-  }
-
-  const cleanPin = newPin.trim();
-  if (cleanPin.length < 4) {
-    return res.status(400).json({ error: 'PIN must be at least 4 digits' });
-  }
-
-  await setUserPin(member.id, cleanPin);
-
-  return res.status(200).json({
-    success: true,
-    message: 'Your PIN has been successfully reset. You can now log in.'
-  });
 });
 
 // API: Get all tasks
