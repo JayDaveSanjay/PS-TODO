@@ -1,0 +1,6 @@
+{
+  "name": "PrintStop Co-Task Board",
+  "description": "Collaborative task board and dependency tracker for the PrintStop sourcing team, featuring secure authenticated login, kanban view, workload tracking, dependency mapping, and blocker alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
